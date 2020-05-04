@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<head>
+    <title></title>
+</head>
+<body>
+    <style>
+        html, body {
+            width:  100%;
+            height: 100%;
+            margin: 0;
+            background-color: black;
+        }
+
+        /* Dropdown Button */
+        .dropbtn, .toolbtn {
+            background-color: #3498DB;
+            color: white;
+            padding: 16px;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+        }
+
+        /* Dropdown button on hover & focus */
+        .dropbtn:hover, .dropbtn:focus {
+            background-color: #2980B9;
+        }
+
+        /* The container <div> - needed to position the dropdown content */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        /* Dropdown Content (Hidden by Default) */
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #f1f1f1;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1;
+        }
+
+        /* Links inside the dropdown */
+        .dropdown-content a {
+            color: black;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+        }
+
+        /* Change color of dropdown links on hover */
+        .dropdown-content a:hover {background-color: #ddd}
+
+        /* Show the dropdown menu (use JS to add this class to the .dropdown-content container when the user clicks on the dropdown button) */
+        .show {display:block;}
+
+        .color-preview {
+            float: left;
+            width: 16px;
+            height: 16px;
+            margin-right: 5px;
+            display: table-cell;
+            background-color: red;
+            border-color: black;
+            border-width: 2px;
+            cursor: pointer;
+        }
+    </style>
+    
+    
+    <div id="toolbar">
+        <!--Dropdown menu for creating new shapes-->
+        <div class="dropdown">
+            <button onclick="openDropdown('new-dropdown')" class="dropbtn">Add Fraction</button>
+            <div id="new-dropdown" class="dropdown-content">
+                Fractions: 
+                <select id="num-fractions" onchange="AddNewShapeButton()">
+                    <option id="fraction-plaeholder" value="" disabled selected style="display:none;">Select...</option>
+                    <option value="1">1</option>
+                    <option value="2">1/2</option>
+                    <option value="3">1/3</option>
+                    <option value="4">1/4</option>
+                    <option value="5">1/5</option>
+                    <option value="6">1/6</option>
+                    <option value="7">1/7</option>
+                    <option value="8">1/8</option>
+                    <option value="9">1/9</option>
+                    <option value="10">1/10</option>
+                </select>
+            </div>
+        </div>
+
+        <!--Dropdown menu for picking colors-->
+        <div class="dropdown">
+            <button onclick="openDropdown('color-dropdown')" class="dropbtn">
+            Color<div id="tool-color" class="color-preview" style="cursor: default;""></div>
+            </button>
+            <div id="color-dropdown" class="dropdown-content">
+                <table>
+                    <tr>
+                        <td><div id="red" class="color-preview" style="background-color: #FF0000;" onclick="changeColorToolColor('#FF0000')"></div></td>
+                        <td><div id="orange" class="color-preview" style="background-color: #FF9900;" onclick="changeColorToolColor('#FF9900')"></div></td>
+                        <td><div id="yellow" class="color-preview" style="background-color: #FFF700;" onclick="changeColorToolColor('#FFF700')"></div></td>
+                        <td><div id="green" class="color-preview" style="background-color: #00FF2A;" onclick="changeColorToolColor('#00FF2A')"></div></td>
+                        <td><div id="blue" class="color-preview" style="background-color: #0015FF;" onclick="changeColorToolColor('#0015FF')"></div></td>
+                        <td><div id="indigo" class="color-preview" style="background-color: #E100FF;" onclick="changeColorToolColor('#E100FF')"></div></td>
+                        <td><div id="violet" class="color-preview" style="background-color: #FF00B7;" onclick="changeColorToolColor('#FF00B7')"></div></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!--Eraser Tool-->
+        <button class="toolbtn" id="eraser-tool" onclick="app.deleteSelectedShape()">Erase Fraction</button>
+    </div>
+    
+    <canvas id="canvas"></canvas>
+
+    <script>
+        // Code for the dropdown menus
+
+        function openDropdown(id) {
+            document.getElementById(id).classList.toggle("show");
+            var dropdowns = document.getElementsByClassName("dropdown-content");
+            for (var i = 0; i < dropdowns.length; i++) {
+                var dp = dropdowns[i];
+                if (dp.classList.contains("show") 
+                    && dp.id != id) {
+                    dp.classList.remove('show');
+                }
+            }
+        }
+
+        function closeAllDropdowns() {
+            var dropdowns = document.getElementsByClassName("dropdown-content");
+            for (var i = 0; i < dropdowns.length; i++) {
+                var openDropdown = dropdowns[i];
+                if (openDropdown.classList.contains("show")) {
+                    openDropdown.classList.remove('show');
+                }
+            }
+        }
+
+
+        window.onclick = function(event) {
+            if (!event.target.matches(".dropbtn") 
+                && !event.target.parentElement.classList.contains("dropdown-content")) {
+                
+                closeAllDropdowns();
+            }
+        }
+    </script>
+    <script>
+        // SHAPE APPEARANCE
+        const CIRCLE_RADIUS = 100;                          // Radius of shapes created
+        const DEFAULT_SHAPE_COLOR = "white";                // Default color of the shapes
+        const LINE_COLOR = "black";                         // Color of the shape outlines
+        const SELECTED_SHAPE_HIGHLIGHT = "yellow";          // Color to make selected vertices
+        
+        // BACKGROUND APPEARANCE
+        const BACKGROUND_COLOR = "rgb(150, 150, 150)";      // Color of canvas background
+        const GRID_SPACING = 20;                            // Pixels between gridlines
+        const EGDELINE_WIDTH = 3;                           // Width of the lines to draw between vertices
+        const EDGELINE_COLOR = "white";                     // Color to draw edges between vertices
+        const GRIDLINE_WIDTH = 1;                           // Width of gridlines
+        const GRIDLINE_COLOR = "gray";                      // Color of gridlines
+
+
+        // Convert degress to radians
+        function RadToDeg(value) {
+            return value * (180 / Math.PI);
+        }
+
+        // Vector class for positions and directions
+        class Vector2
+        {
+            constructor(x, y) {
+                this._x = x
+                this._y = y
+            }
+
+            getX() { return this._x; }
+            getY() { return this._y; }
+            
+            setX(value) { this._x = value; }
+            setY(value) { this._y = value; }
+
+            static add(v1, v2) {
+                return new Vector2(v1._x + v2._x, v1._y + v2._y);
+            }
+
+            static subtract(v1, v2) {
+                return new Vector2(v1._x - v2._x, v1._y - v2._y);
+            }
+
+            static norm(vector) {
+                mag = vector.magnitude();
+                return new Vector2(vector._x / mag, vector._y / mag);
+            }
+
+            static dot(v1, v2) {
+                return (v1._x * v2._x) + (v1._y * v2._y);
+            }
+
+            static angle(v1, v2) {
+                return Math.acos(Vector2.dot(v1, v2) / (v1.magnitude() * v2.magnitude()));
+            }
+
+            magnitude() {
+                return Math.sqrt(Math.pow(this._x, 2) + Math.pow(this._y, 2));
+            }
+        }
+
+        class FractionCircle
+        {
+            constructor(numDivisions, radius) {
+                this._position = new Vector2(0, 0);
+
+                this._radius = radius;
+
+                this._numDivisions = numDivisions;
+
+                this._selected = false;
+
+                this._divisionColors = []
+                for (var i = 0; i < numDivisions; i++) {
+                    this._divisionColors[i] = '#FFFFFF'
+                }
+
+                this._angleInterval = (2 * Math.PI) / numDivisions;
+
+                this._divisionAngles = []
+                for (var i = 0; i < numDivisions; i++) {
+                    this._divisionAngles[i] = (2 * Math.PI) / numDivisions;
+                }
+            }
+
+            getNumDivisions() { return this._numDivisions; }
+
+            getPosition() { return this._position; }
+
+            getColor(index) { return this._divisionColors[index]; }
+
+            setPosition(value) { 
+                this._position = value; 
+            }
+
+            setColor(divisionIndex, color) {
+                this._divisionColors[divisionIndex] = color;
+            }
+
+            draw(ctx) {
+                var beginAngle = 0;
+                var endAngle = 0;
+                var medianAngle = 0;
+                var offset = 2, offsetX, offsetY;
+
+                // Draw selection highlight
+                if (this._selected) {
+                    ctx.beginPath();
+                    ctx.arc(this._position.getX(), this._position.getY(), this._radius + 10, 0, 2 * Math.PI, false);
+                    ctx.fillStyle = 'yellow';
+                    ctx.fill();
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = 'white';
+                    ctx.stroke();   
+                }
+                
+                // Draw the fraction sections
+                // Borrowed from: 
+                // http://www.codeblocq.com/2016/04/Create-a-Pie-Chart-with-HTML5-canvas/
+                for (var i = 0; i < this._numDivisions; i++) {
+                    beginAngle = endAngle;
+                    endAngle = endAngle + this._angleInterval;
+                    medianAngle = (endAngle + beginAngle) / 2;
+                    offsetX = Math.cos(medianAngle) * offset;
+                    offsetY = Math.sin(medianAngle) * offset;
+                    ctx.beginPath();
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = 'black';
+                    ctx.fillStyle = this._divisionColors[i % this._divisionColors.length];
+                    ctx.moveTo(this._position.getX() + offsetX, this._position.getY() + offsetY);
+                    ctx.arc(this._position.getX() + offsetX, this._position.getY() + offsetY, this._radius, beginAngle, endAngle);
+                    ctx.lineTo(this._position.getX() + offsetX, this._position.getY() + offsetY);
+                    ctx.stroke();
+                    ctx.fill();
+                }
+            }
+
+            select() {
+                this._selected = true;
+            }
+
+            unselect() {
+                this._selected = false;
+            }
+
+            isSelected() {
+                return this._selected;
+            }
+
+            isClicked(clickPosition) {
+                var centerToClick = Vector2.subtract(clickPosition, this._position);
+                var distToCenter = centerToClick.magnitude();
+                var clicked = distToCenter <= this._radius;
+                return clicked;
+            }
+
+            sectionClicked(clickPosition) {
+                var centerToClick = Vector2.subtract(clickPosition, this._position);
+                var horizontal = new Vector2(1, 0);
+                var angle = Vector2.angle(horizontal, centerToClick);
+
+                if (centerToClick.getY() < 0) {
+                    // We need to adjust the angle since
+                    // we are measureing clockwise starting from (1, 0)
+                    angle = (Math.PI) + (Math.PI - angle); 
+                }
+
+                // Loop through the angle intervals
+                for (var i = 1; i <= this._numDivisions; i++) {
+                    if (angle >= (this._angleInterval * (i - 1)) 
+                        && angle <= (this._angleInterval * i)) {
+                    
+                        return i - 1; 
+                    }
+                }
+
+                return -1;
+            }
+        }
+
+
+        // Colors a section of a shape with the current color
+        class ColorTool {
+            constructor() {
+                this._color = "#FF0011";
+            }
+
+            setColor(value) {
+                this._color = value;
+            }
+
+            // Applies the color of the tool
+            // to the section at the clicked point
+            apply(shape, clickPoint) {
+                var index = shape.sectionClicked(clickPoint);
+                if (index != -1) {
+                    if (shape.getColor(index) == this._color) {
+                        shape.setColor(index, "#FFFFFF");
+                    } else {
+                        shape.setColor(index, this._color);
+                    }
+                }
+            }
+        }
+
+        class FractionVisualizerApp
+        {
+            constructor() {
+                // Array of shapes drawn in the canvas
+                this._shapes = [];
+                // Reference to DOM canvas
+                this._canvas = document.getElementById("canvas");
+                // Reference to 2D WebGL context
+                this._ctx = this._canvas.getContext("2d");
+                // Is the left mouse button currently down
+                this._mouseDown = false;
+                // Has the mouse moved while the left mouse button was down
+                this._mouseDragging = false;
+                // Which shape is currently selected
+                this._selectedShape = null;
+                // Is the control button down
+                this._ctrlDown = false;
+                // Current tool being used to modify the fraction models
+                this._tool = null
+                // Setup the event listeners
+                this._initEventListeners();                
+            }
+
+            static run(app) {
+                app.draw();
+                requestAnimationFrame(function() {
+                    FractionVisualizerApp.run(app);
+                });
+            }
+
+            setTool(tool) {
+                this._tool = tool
+            }
+
+            addShape(shape, centered) {
+                var width = this._ctx.canvas.width;
+                var height = this._ctx.canvas.height;
+                if (centered) {
+                    shape.setPosition(new Vector2(width / 2, height / 2));
+                }
+                this._shapes.push(shape); 
+            }
+
+            createCircle() {
+                var circle = new FractionCircle(3, CIRCLE_RADIUS);
+                this.addShape(circle, true);
+            }
+
+            // Remove a shape from the scene
+            removeShape(index) {
+                if (index >= 0 && index < this._shapes.length) {
+                    this._shapes.splice(index, 1);
+                }
+            }
+
+            // Remove the selected shape from the scene
+            deleteSelectedShape() {
+                for (var i = this._shapes.length - 1; i >= 0; i--) {
+                    if (this._shapes[i].isSelected()) {
+                        this._shapes[i].unselect();
+                        this._shapes.splice(i, 1);
+                    }
+                }
+            }
+            
+            // Select a shape in the scene
+            selectShape(index) {
+                if (index >= 0 && index < this._shapes.length) {
+                    selectedVertex = index;
+                    vertices[index].selected = true;
+                }
+            }
+
+            // Remove selection highlight from currently selsected shape
+            clearSelection() {
+                if (this._selectedShape != null) {
+                    this._selectedShape.unselect();
+                    this._selectedShape = null;
+                }  
+            }
+
+            // Return true if a shape is currently selected
+            isShapeSelected() {
+                return selectedShape != null;
+            }
+
+            ///////////////////////////////////////////////
+            //                 DRAWING                   //
+            ///////////////////////////////////////////////
+
+            draw() {
+                this._ctx.canvas.width = window.innerWidth;
+                this._ctx.canvas.height = window.innerHeight;
+                this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height)
+                this._drawBackground();
+                this._drawGridlines();
+                this._drawShapes();
+            }
+
+            _drawBackground() {
+                this._ctx.fillStyle = BACKGROUND_COLOR;
+                this._ctx.fillRect(0, 0, this._canvas.width, this._canvas.height);
+            }
+
+            _drawGridlines() {
+                // Draw horizontal lines
+                for (var i = 0; i < this._canvas.height; i+=20) {
+                    this._ctx.beginPath();
+                    this._ctx.strokeStyle = GRIDLINE_COLOR;
+                    this._ctx.lineWidth = GRIDLINE_WIDTH;
+                    this._ctx.moveTo(0, i);
+                    this._ctx.lineTo(this._canvas.width, i);
+                    this._ctx.stroke();
+                }
+
+                // Draw vertical lines
+                for (var i = 0; i < this._canvas.width; i+=20) {
+                    this._ctx.beginPath();
+                    this._ctx.strokeStyle = GRIDLINE_COLOR;
+                    this._ctx.lineWidth = GRIDLINE_WIDTH;
+                    this._ctx.moveTo(i, 0);
+                    this._ctx.lineTo(i, this._canvas.height);
+                    this._ctx.stroke();
+                }
+            }
+
+            _drawShapes() {
+                for (var i = 0; i < this._shapes.length; i++) {
+                    this._shapes[i].draw(this._ctx)
+                }
+            }
+
+            ///////////////////////////////////////////////
+            //              EVENT LISTENERS              //
+            ///////////////////////////////////////////////
+
+            // Register the event handler functions with the canvas
+            _initEventListeners() {
+
+                var applicationObj = this;
+
+                this._canvas.addEventListener(
+                    "click", 
+                    function(event) {
+                        applicationObj._handleClick(event); 
+                    },
+                    false);
+
+                this._canvas.addEventListener(
+                    "mouseup", 
+                    function(event) {
+                        applicationObj._handleMouseUp(event); 
+                    },
+                    false);
+
+                this._canvas.addEventListener(
+                    "mousedown", 
+                    function(event) {
+                        applicationObj._handleMouseDown(event); 
+                    },
+                    false);
+
+                this._canvas.addEventListener(
+                    'mousemove', 
+                    function(event) {
+                        applicationObj._handleMouseMove(event); 
+                    },
+                    false);
+
+                window.addEventListener(
+                    "keydown",
+                    function(event) {
+                        applicationObj._handleKeyUp(event);
+                    });
+            }
+
+            // Called when the left mouse button is clicked inside the canvas
+            _handleClick(event) {
+                if (!this._mouseDragging) {
+                    // Get the position of the click on the canvas
+                    var x = event.pageX - canvas.offsetLeft;
+                    var y = event.pageY - canvas.offsetTop;
+                    var clickPoint = new Vector2(x, y);
+
+                    // Check to see if the click was on any of the circlces
+                    var clickedShape = this._getClickedShape(clickPoint);
+
+                    if (clickedShape == null) {
+                        this.clearSelection();
+                    } else {
+                        this.clearSelection();
+                        clickedShape.select();
+                        this._selectedShape = clickedShape;
+                        if (this._tool) {
+                            this._tool.apply(clickedShape, clickPoint);
+                        }
+                    }
+                }
+            }
+
+            // Called when mouse moves inside of the canvas
+            _handleMouseMove(event) {
+                if (this._mouseDown) {
+                    var x = event.pageX - canvas.offsetLeft;
+                    var y = event.pageY - canvas.offsetTop;
+                    var clickPoint = new Vector2(x, y);
+
+                    this._mouseDragging = true;
+
+                    if (this._selectedShape != null) {
+                        this._selectedShape.setPosition(new Vector2(x, y));
+                    }
+                }
+            }
+
+            _handleMouseUp(event) {
+                this._mouseDown = false;
+            }
+
+            
+            _handleMouseDown(event) {
+                this._mouseDragging = false;
+                this._mouseDown = true;
+                var x = event.pageX - canvas.offsetLeft;
+                var y = event.pageY - canvas.offsetTop;
+                var clickPoint = new Vector2(x, y);
+                var clickedShape = this._getClickedShape(clickPoint);
+                if (clickedShape != null) {
+                    this.clearSelection();
+                    clickedShape.select();
+                    this._selectedShape = clickedShape;
+                }
+            }
+
+            _handleKeyUp(event) {
+                var code = event.keyCode;
+                switch(code) {
+                    // Delete key
+                    case 46: 
+                        this.deleteSelectedShape();
+                        break;
+                    // Escape key
+                    case 27:
+                        closeAllDropdowns();
+                        this.clearSelection();
+                    // Unsupported keybord shortcut
+                    default: break;
+                }
+            }
+
+            ///////////////////////////////////////////////
+            //             UTILITY FUNCTIONS             //
+            ///////////////////////////////////////////////
+
+            // Returns reference to shape that was clicked
+            _getClickedShape(clickPoint) {
+                for (var i = 0; i < this._shapes.length; i++) {
+                    if (this._shapes[i].isClicked(clickPoint)) {
+                        return this._shapes[i];
+                    }
+                }
+                return null;
+            }
+        }
+
+        // Called when the user clicks the Add button
+        function AddNewShapeButton() {
+            var numDivisions = document.getElementById("num-fractions").value;
+            var circle = new FractionCircle(numDivisions, CIRCLE_RADIUS);
+            app.addShape(circle, true);
+            document.getElementById("num-fractions").selectedIndex = 0;
+            closeAllDropdowns();
+
+        }
+
+        function changeColorToolColor(color) {
+            colorTool.setColor(color);
+            var colorPreview = document.getElementById("tool-color");
+            colorPreview.style.backgroundColor = color;
+        }
+
+        function run(app) {
+            app.draw();
+            requestAnimationFrame(run);
+        }
+
+
+        let app = new FractionVisualizerApp();
+        let colorTool = new ColorTool();
+        app.setTool(colorTool);
+        FractionVisualizerApp.run(app);
+    </script>
+</body>
+</html>
